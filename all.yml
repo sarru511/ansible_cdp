@@ -1,0 +1,228 @@
+#################################################################
+# CDP Deployment - Global Variables (all.yml)
+#################################################################
+
+# =========================
+# Python Configuration
+# =========================
+ansible_python_interpreter: /usr/libexec/platform-python
+
+# =========================
+# Database Configuration
+# =========================
+database_type: postgresql
+database_engine: postgresql
+database_version: 13
+database_host: "{{ groups['cluster_master_nodes'] | first }}"
+install_py3_psycopg2: true
+
+# =========================
+# Cloudera Manager Configuration
+# =========================
+cloudera_manager_host: "{{ groups['cluster_master_nodes'] | first }}"
+cloudera_manager_version: "7.13.1"
+cloudera_manager_distro_name: "redhat"
+cloudera_manager_distro_version: "8"
+
+cloudera_archive_base_url: "https://archive.cloudera.com"
+cloudera_manager_repo_username: "e77768ed-1987-41fb-94c2-5cdf295599f5"
+cloudera_manager_repo_password: "2aed95ec605d"
+
+#cloudera_manager_license_type: enterprise
+#license_local_tmp_path: "/root/cdp_private_cloud_installation/cloudera_license.txt"
+
+cloudera_manager_admin_username: "admin"
+cloudera_manager_admin_password: "admin"
+
+selinux_state: disabled
+
+# =========================
+# Parcel Configuration
+# =========================
+parcel_repos:
+  - "https://archive.cloudera.com/p/cdh7/7.3.1.0/parcels/"
+
+parcel_repo_username: "e77768ed-1987-41fb-94c2-5cdf295599f5"
+parcel_repo_password: "2aed95ec605d"
+
+cluster:
+  repositories:
+    - "{{ parcel_repos[0] }}"
+
+# =========================
+# Cluster Definition
+# =========================
+cluster_name: "cdp-ansible"
+update_services: true
+
+clusters:
+  - name: "{{ cluster_name }}"
+    type: base
+    os_distribution: "el8"
+    repositories:
+      - "{{ parcel_repos[0] }}"
+
+    services:
+      - HDFS
+      - YARN
+      - ZOOKEEPER
+      - HBASE
+      - PHOENIX
+      - HIVE
+      - HUE
+      - QUEUEMANAGER
+      - HIVE_ON_TEZ
+      - TEZ
+      - INFRA_SOLR
+      - RANGER
+      - OOZIE
+      - KNOX
+
+    security:
+      kerberos: false   # ✅ Enable later after agents are healthy
+
+    host_templates:
+      Master:
+        HDFS: [NAMENODE, SECONDARYNAMENODE, GATEWAY, DATANODE]
+        ZOOKEEPER: [SERVER]
+        YARN: [RESOURCEMANAGER, JOBHISTORY, NODEMANAGER]
+        HBASE: [MASTER, REGIONSERVER]
+        PHOENIX: [PHOENIX_QUERY_SERVER]
+        HIVE: [GATEWAY, HIVEMETASTORE]
+        HUE: [HUE_SERVER]
+        INFRA_SOLR: [SOLR_SERVER]
+        RANGER: [RANGER_ADMIN]
+        TEZ: [GATEWAY]
+        HIVE_ON_TEZ: [GATEWAY, HIVESERVER2]
+        QUEUEMANAGER: [QUEUEMANAGER_STORE, QUEUEMANAGER_WEBAPP]
+        OOZIE: [OOZIE_SERVER]
+        KNOX: [KNOX_GATEWAY]
+
+      Worker:
+        HDFS: [DATANODE, GATEWAY]
+        ZOOKEEPER: [SERVER]
+        YARN: [NODEMANAGER]
+        HBASE: [REGIONSERVER]
+        PHOENIX: [PHOENIX_QUERY_SERVER]
+        HIVE: [GATEWAY]
+        TEZ: [GATEWAY]
+        HIVE_ON_TEZ: [GATEWAY]
+        HUE: [HUE_LOAD_BALANCER]
+        RANGER: [RANGER_TAGSYNC, RANGER_USERSYNC]
+
+# =========================
+# Service Configurations
+# =========================
+service_configs:
+  INFRA_SOLR:
+    INFRA_SOLR_SERVER:
+      solr_datadir: /var/lib/solr/data
+      solr_heap: 1024
+      solr_port: 8983
+
+# =========================
+# Management Services
+# =========================
+mgmt:
+  services:
+    - HOSTMONITOR
+    - SERVICEMONITOR
+    - EVENTSERVER
+    - ALERTPUBLISHER
+    - REPORTSMANAGER
+
+# =========================
+# Kerberos / FreeIPA Configuration
+# =========================
+ipaclient_principal: admin
+ipaclient_password: Alph@1234
+ipaclient_servers:
+  - ldapnode.infra.alephys.com
+
+dns_search_domains:
+  - infra.alephys.com
+
+ipaclient_force_join: yes
+
+krb5_kdc_type: 'Red Hat IPA'
+krb5_domain: infra.alephys.com
+krb5_kdc_host: ldapnode.infra.alephys.com
+krb5_realm: ALEPHYS.COM
+krb5_enc_types: "aes256-cts"
+
+krb5_kdc_admin_user: admin
+krb5_kdc_admin_password: "Alph@1234"
+
+ipaadmin_password: "Alph@1234"
+
+use_sssd_for_enumeration: true
+
+krb5_kdc_active_directory_set_encryption_types: false
+krb5_kdc_active_directory_delete_on_regenerate: false
+
+# =========================
+# AUTO-TLS CONFIGURATION (CRITICAL)
+# =========================
+cm_autotls_type: CUSTOM_CA
+
+cm_autotls_cacert: /root/certs/ca.pem
+cm_autotls_cakey: /root/certs/ca.key
+
+cm_autotls_config:
+  auto_tls_type: "CUSTOM_CA"
+
+sudoerUser: "root"
+freeipa_activated: false
+node_password: "4lph@123"
+
+# =========================
+# AGENT TLS CONFIG (CRITICAL FIX)
+# =========================
+cloudera_manager_agent_config:
+  server_host: "{{ cloudera_manager_host }}"
+  use_tls: true
+  verify_cert_file: "/var/lib/cloudera-scm-agent/agent-cert/cm-auto-global_cacerts.pem"
+
+# =========================
+# External Authentication (LDAP)
+# =========================
+cloudera_manager_external_auth:
+  external_only: false
+  external_first: true
+
+ipa_ldap_url: ldap://ldapnode.infra.alephys.com:389
+ipa_admin_user: admin
+ipaadmin_password: Alephys@1234
+
+ipa_ldap_user_bind_dn: uid=admin,cn=users,cn=accounts,dc=alephys,dc=com
+ipa_ldap_user_bind_password: Alephys@1234
+
+ipa_ldap_user_search_base: cn=users,cn=accounts,dc=alephys,dc=com
+ipa_ldap_user_search_filter: "(uid={0})"
+
+ipa_ldap_group_search_base: cn=ipausers,cn=groups,cn=accounts,dc=alephys,dc=com
+
+# =========================
+# Authentication Provider
+# =========================
+service_auth_provider: ldap
+
+auth_providers:
+  ldap:
+    type: LDAP
+    ldap_attribute:
+      member: member
+      group: cn
+      user: uid
+      user_member: memberUid
+    ldap_object_class:
+      group: posixgroup
+      user: person
+    ldap_search_base:
+      group: cn=groups,cn=accounts,dc=alephys,dc=com
+      user: cn=users,cn=accounts,dc=alephys,dc=com
+    ldap_bind_user_dn: uid=admin,cn=users,cn=accounts,dc=alephys,dc=com
+    ldap_bind_password: "Alph@1234"
+    ldap_url: ldap://ldapnode.infra.alephys.com:389
+
+use_start_tls: true
