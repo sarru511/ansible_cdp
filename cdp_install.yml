@@ -1,0 +1,86 @@
+# ------------------------------------------------------------
+# Step 1: Install CM Server and Enable Auto-TLS
+# ------------------------------------------------------------
+- name: Install CM Server and enable Auto-TLS
+  hosts: cluster_master_nodes
+  collections:
+    - cloudera.cluster.prereqs
+    - cloudera.cluster.cloudera_manager
+    - cloudera.cluster.infrastructure
+
+  roles:
+    # ---------- BASE SYSTEM ----------
+    - prereqs/os
+    - prereqs/jdk
+
+    # ---------- DATABASE ----------
+    - infrastructure/rdbms
+    - prereqs/postgresql_connector
+
+    # ---------- CM SERVER ----------
+    - cloudera_manager/repo
+    - cloudera_manager/server
+    - cloudera_manager/common
+    - cloudera_manager/license
+
+    # ---------- SECURITY ----------
+    - prereqs/kerberos
+    - infrastructure/krb5_client
+    - cloudera_manager/kerberos
+
+    # ---------- AUTOTLS (INTERMEDIATE CA) ----------
+    - cloudera_manager/autotls
+
+    # ---------- OPTIONAL ----------
+    - cloudera_manager/external_auth
+
+    # ------------------------------------------------------------
+# Step 2: Install CM Agents
+# ------------------------------------------------------------
+- name: Install CM agents on all nodes
+  hosts: cluster_master_nodes, cluster_worker_nodes
+  collections:
+    - cloudera.cluster.prereqs
+    - cloudera.cluster.cloudera_manager
+
+  roles:
+    # ---------- BASE SYSTEM ----------
+    - prereqs/os
+    - prereqs/jdk
+
+    # ---------- CM AGENT ----------
+    - cloudera_manager/repo
+    - cloudera_manager/agent
+    - cloudera_manager/daemons
+
+   # ------------------------------------------------------------
+# Step 3: Build CDP Cluster
+# ------------------------------------------------------------
+- name: Deploy CDP Cluster
+  hosts: cluster_master_nodes
+  collections:
+    - cloudera.cluster.cloudera_manager
+    - cloudera.cluster.deployment
+
+  roles:
+    # ---------- VALIDATION ----------
+    - verify/parcels_and_roles
+
+    # ---------- CM API ----------
+    - cloudera_manager/api_client
+    - cloudera_manager/api_hosts
+    - cloudera_manager/hosts_config
+    - cloudera_manager/config
+
+    # ---------- CLUSTER DEFINITION ----------
+    - deployment/definition
+
+    # ---------- MGMT SERVICES ----------
+    - config/services/mgmt
+    - deployment/services/mgmt
+
+    # ---------- OPTIONAL SERVICES ----------
+    - config/services/oozie_ui
+
+    # ---------- FINAL DEPLOYMENT ----------
+    - deployment/cluster
